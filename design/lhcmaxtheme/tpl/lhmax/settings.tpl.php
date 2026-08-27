@@ -7,13 +7,13 @@
 <?php if (isset($testResult)) : ?>
     <?php if ($testResult['success']) : ?>
         <div class="alert alert-success" role="alert">
-            <h5>✅ Connection successful! (HTTP <?php echo (int)$testResult['http_code']; ?>)</h5>
+            <h5>Connection successful (HTTP <?php echo (int)$testResult['http_code']; ?>)</h5>
             <small>Bot API token is valid and media upload initialization endpoint responded correctly.</small>
         </div>
     <?php else : ?>
         <div class="alert alert-danger" role="alert">
-            <h5>❌ Connection failed! (HTTP <?php echo (int)$testResult['http_code']; ?>)</h5>
-            <pre class="mb-0 fs12"><?php echo htmlspecialchars($testResult['response']); ?></pre>
+            <h5>Connection failed (HTTP <?php echo (int)$testResult['http_code']; ?>)</h5>
+            <pre class="mb-0 fs12"><?php echo htmlspecialchars($testResult['curl_error'] !== '' ? $testResult['curl_error'] : $testResult['response']); ?></pre>
         </div>
     <?php endif; ?>
 <?php endif; ?>
@@ -25,7 +25,7 @@
             <p class="card-text mb-2">Welcome to the <strong>Max Messenger</strong> extension! To set up two-way integration in seconds:</p>
             <ol class="mb-3">
                 <li>Enter your <strong>Bot API Token</strong> below and click <code>Save settings</code>.</li>
-                <li>Click <strong>⚡ Save and Activate Max configuration</strong> at the bottom of this page. This will automatically generate the <em>Incoming Webhook</em> and <em>REST API</em> templates.</li>
+                <li>Click <strong>Save and Activate Max configuration</strong> at the bottom of this page. This will automatically generate the <em>Incoming Webhook</em> and <em>REST API</em> templates.</li>
                 <li>Copy the generated <strong>Callback URL</strong> and paste it into your Max bot webhook settings.</li>
             </ol>
         </div>
@@ -60,8 +60,14 @@
 
             <div class="form-group mb-3">
                 <label class="form-label fw-bold">Bot API Token</label>
-                <input type="text" class="form-control font-monospace" name="token" autocomplete="off" spellcheck="false" value="<?php echo htmlspecialchars($settings['token']);?>" placeholder="f9LHodD0cO...">
+                <input type="password" class="form-control font-monospace" name="token" autocomplete="new-password" spellcheck="false" value="<?php echo htmlspecialchars($settings['token']);?>" placeholder="Max bot token">
                 <div class="form-text text-muted">Secret Bot Token from Max platform used for message dispatch and 3-step media upload.</div>
+            </div>
+
+            <div class="form-group mb-3">
+                <label class="form-label fw-bold">Fallback Department ID</label>
+                <input type="number" min="0" class="form-control" name="department_id" value="<?php echo (int)($settings['department_id'] ?? 0);?>">
+                <div class="form-text text-muted">Optional. Keep 0 when Max chats use an incoming webhook with scope <code>max</code>.</div>
             </div>
 
             <div class="form-group mb-3">
@@ -79,7 +85,7 @@
 
     <div class="card mb-3">
         <div class="card-header bg-light fw-bold">
-            📋 Component Status & Configuration
+            Component Status and Configuration
         </div>
         <div class="card-body">
             <div class="mb-3">
@@ -88,7 +94,7 @@
                     <span class="badge bg-success">Exists</span> (Scope: <code><?php echo htmlspecialchars($incomingWebhook->scope);?></code>, Dep ID: <code><?php echo (int)$incomingWebhook->dep_id;?></code>)
                     <div class="form-group mt-2">
                         <label class="form-label fw-bold small">Callback URL for Max integration:</label>
-                        <input readonly type="text" class="form-control form-control-sm font-monospace" value="https://<?php echo $_SERVER['HTTP_HOST']?><?php echo erLhcoreClassDesign::baseurl('genericbot/incomingwebhook')?>/<?php echo (int)$incomingWebhook->id?>/<?php echo htmlspecialchars($incomingWebhook->identifier)?>">
+                        <input readonly type="text" class="form-control form-control-sm font-monospace" value="<?php echo htmlspecialchars(erLhcoreClassSystem::getHost() . erLhcoreClassDesign::baseurl('genericbot/incomingwebhook') . '/' . (int)$incomingWebhook->id . '/' . $incomingWebhook->identifier); ?>">
                     </div>
                     <p class="small text-muted mt-1 mb-0"><a target="_blank" href="<?php echo erLhcoreClassDesign::baseurl('webhooks/editincoming')?>/<?php echo (int)$incomingWebhook->id?>">Edit Incoming Webhook settings &rarr;</a></p>
                 <?php else : ?>
@@ -113,14 +119,14 @@
             <hr class="my-3">
 
             <div class="mb-3">
-                <h6 class="fw-bold mb-1">3. Event Listeners & Media Upload</h6>
+                <h6 class="fw-bold mb-1">3. Event Listener and Media Upload</h6>
                 <p class="text-success small mb-1"><i class="material-icons fs14 align-middle">check_circle</i> chat.web_add_msg_admin (Native 3-step upload: Init &rarr; Upload &rarr; Dispatch)</p>
                 <p class="text-success small mb-0"><i class="material-icons fs14 align-middle">check_circle</i> Message & quote synchronization (2-way mid tracking)</p>
             </div>
         </div>
         <div class="card-footer bg-light d-flex gap-2">
-            <input type="submit" class="btn btn-secondary btn-sm" name="StoreOptionsMax" value="⚡ Save and Activate Max configuration" />
-            <input type="submit" class="btn btn-warning btn-sm" name="StoreOptionsMaxRemove" value="🗑️ Save and Remove Max configuration" />
+            <button type="submit" class="btn btn-secondary btn-sm" name="StoreOptionsMax"><i class="material-icons">bolt</i> Save and Activate Max configuration</button>
+            <button type="submit" class="btn btn-warning btn-sm" name="StoreOptionsMaxRemove"><i class="material-icons">delete</i> Save and Remove Max configuration</button>
         </div>
     </div>
 </form>
