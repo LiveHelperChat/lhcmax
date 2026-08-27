@@ -18,6 +18,20 @@
     <?php endif; ?>
 <?php endif; ?>
 
+<?php if (!$incomingWebhook || !$restAPI) : ?>
+    <div class="card border-primary mb-3 bg-light">
+        <div class="card-body">
+            <h5 class="card-title text-primary"><i class="material-icons align-middle">rocket_launch</i> Quick Setup Guide for New Installation</h5>
+            <p class="card-text mb-2">Welcome to the <strong>Max Messenger</strong> extension! To set up two-way integration in seconds:</p>
+            <ol class="mb-3">
+                <li>Enter your <strong>Bot API Token</strong> below and click <code>Save settings</code>.</li>
+                <li>Click <strong>⚡ Save and Activate Max configuration</strong> at the bottom of this page. This will automatically generate the <em>Incoming Webhook</em> and <em>REST API</em> templates.</li>
+                <li>Copy the generated <strong>Callback URL</strong> and paste it into your Max bot webhook settings.</li>
+            </ol>
+        </div>
+    </div>
+<?php endif; ?>
+
 <form action="<?php echo erLhcoreClassDesign::baseurl('max/settings')?>" method="post" autocomplete="off" ng-non-bindable>
     <?php include(erLhcoreClassDesign::designtpl('lhkernel/csfr_token.tpl.php'));?>
 

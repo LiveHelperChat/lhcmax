@@ -18,6 +18,10 @@ class MaxLiveHelperChatActivator {
 
     public static function installOrUpdate()
     {
+        $ext = \erLhcoreClassExtensionLhcmax::getInstance();
+        $token = $ext->getSetting('token', '');
+        $host = rtrim($ext->getSetting('host', 'https://platform-api2.max.ru'), '/');
+
         // 1. Incoming Webhook
         $incomingWebhook = \erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
         if (!$incomingWebhook) {
@@ -30,7 +34,7 @@ class MaxLiveHelperChatActivator {
             if (!$incomingWebhook) {
                 $incomingWebhook = new \erLhcoreClassModelChatIncomingWebhook();
                 $incomingWebhook->setState($content);
-                $incomingWebhook->dep_id = 8;
+                $incomingWebhook->dep_id = 8; // Department ID 8 (Max) or fallback to 1
                 $incomingWebhook->name = 'MaxWebhook';
                 $incomingWebhook->identifier = \erLhcoreClassModelForgotPassword::randomPassword(20);
             } else {
@@ -49,6 +53,27 @@ class MaxLiveHelperChatActivator {
         $restApiFile = dirname(__DIR__) . '/doc/max/rest-api.json';
         if (file_exists($restApiFile)) {
             $content = json_decode(file_get_contents($restApiFile), true);
+            
+            // Populate Host & Token into REST API configuration
+            if (isset($content['configuration'])) {
+                $cfg = json_decode($content['configuration'], true);
+                if (is_array($cfg)) {
+                    $cfg['host'] = $host;
+                    if (!empty($token) && isset($cfg['parameters'])) {
+                        foreach ($cfg['parameters'] as &$param) {
+                            if (isset($param['header'])) {
+                                foreach ($param['header'] as &$hdr) {
+                                    if ($hdr['key'] === 'Authorization') {
+                                        $hdr['value'] = $token;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    $content['configuration'] = json_encode($cfg);
+                }
+            }
+
             if (!$restAPI) {
                 $restAPI = new \erLhcoreClassModelGenericBotRestAPI();
                 $restAPI->setState($content);
