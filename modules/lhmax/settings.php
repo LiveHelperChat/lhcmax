@@ -1,14 +1,7 @@
 <?php
 
 $tpl = erLhcoreClassTemplate::getInstance('lhmax/settings.tpl.php');
-
-$settingsFile = dirname(dirname(__DIR__)) . '/settings/settings.ini.php';
-$settings = file_exists($settingsFile) ? include $settingsFile : [
-    'enabled' => true,
-    'host' => 'https://platform-api2.max.ru',
-    'token' => '',
-    'debug' => false
-];
+$ext = erLhcoreClassExtensionLhcmax::getInstance();
 
 $testResult = null;
 
@@ -18,16 +11,17 @@ if (isset($_POST['SaveSettings'])) {
         exit;
     }
 
-    $settings['enabled'] = isset($_POST['enabled']);
-    $settings['host'] = trim($_POST['host']);
-    $settings['token'] = trim($_POST['token']);
-    $settings['debug'] = isset($_POST['debug']);
-
-    $content = "<?php\n\nreturn " . var_export($settings, true) . ";\n\n?>";
-    file_put_contents($settingsFile, $content);
+    $ext->saveSettings([
+        'enabled' => isset($_POST['enabled']),
+        'host' => trim($_POST['host']),
+        'token' => trim($_POST['token']),
+        'debug' => isset($_POST['debug'])
+    ]);
 
     $tpl->set('updated', 'done');
 }
+
+$settings = $ext->getSettings();
 
 if (isset($_POST['TestConnection'])) {
     $token = trim($_POST['token'] ?? $settings['token']);
@@ -58,12 +52,9 @@ if (!$incomingWebhook) {
     $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
 }
 
-$restAPI = erLhcoreClassModelGenericBotRestAPI::findOne(['filter' => ['name' => 'Max']]);
-
 $tpl->set('settings', $settings);
 $tpl->set('testResult', $testResult);
 $tpl->set('incomingWebhook', $incomingWebhook);
-$tpl->set('restAPI', $restAPI);
 
 $Result['content'] = $tpl->fetch();
 $Result['path'] = array(

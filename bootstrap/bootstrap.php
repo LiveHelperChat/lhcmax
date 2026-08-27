@@ -8,17 +8,7 @@ class erLhcoreClassExtensionLhcmax
 
     public function __construct()
     {
-        $settingsFile = dirname(__DIR__) . '/settings/settings.ini.php';
-        if (file_exists($settingsFile)) {
-            $this->settings = include $settingsFile;
-        } else {
-            $this->settings = [
-                'enabled' => true,
-                'host' => 'https://platform-api2.max.ru',
-                'token' => '',
-                'debug' => false
-            ];
-        }
+        $this->loadSettings();
     }
 
     public static function getInstance()
@@ -35,6 +25,38 @@ class erLhcoreClassExtensionLhcmax
 
         // Listen for messages added by operators or bots
         $dispatcher->listen('chat.web_add_msg_admin', array($this, 'onWebAddMsgAdmin'));
+    }
+
+    public function loadSettings()
+    {
+        $settingsFile = dirname(__DIR__) . '/settings/settings.ini.php';
+        if (file_exists($settingsFile)) {
+            $this->settings = include $settingsFile;
+        } else {
+            $this->settings = [
+                'enabled' => true,
+                'host' => 'https://platform-api2.max.ru',
+                'token' => '',
+                'debug' => false
+            ];
+        }
+        return $this->settings;
+    }
+
+    public function getSettings()
+    {
+        if (empty($this->settings)) {
+            $this->loadSettings();
+        }
+        return $this->settings;
+    }
+
+    public function saveSettings($newSettings)
+    {
+        $this->settings = array_merge($this->getSettings(), $newSettings);
+        $settingsFile = dirname(__DIR__) . '/settings/settings.ini.php';
+        $content = "<?php\n\nreturn " . var_export($this->settings, true) . ";\n\n?>";
+        return file_put_contents($settingsFile, $content) !== false;
     }
 
     public function getSetting($key, $default = null)
