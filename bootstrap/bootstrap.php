@@ -23,7 +23,7 @@ class erLhcoreClassExtensionLhcmax
     {
         $dispatcher = erLhcoreClassChatEventDispatcher::getInstance();
 
-        // Listen for messages added by operators or bots
+        // Listen for files/media added by operators or bots to handle 3-step upload
         $dispatcher->listen('chat.web_add_msg_admin', array($this, 'onWebAddMsgAdmin'));
     }
 
@@ -97,26 +97,30 @@ class erLhcoreClassExtensionLhcmax
             return;
         }
 
-        // Skip if message was already delivered
-        if (!empty($msg->meta_msg_array['iwh_msg_id']) && empty($msg->meta_msg_array['lhcmax_pending'])) {
-            return;
-        }
-
         // Extract files if any
         $files = $this->extractMessageFiles($msg);
-        $cleanText = $this->stripFileEmbeds($msg->msg);
-
-        // Find reply mid if operator quoted a message
-        $replyMid = $this->extractReplyMid($msg, $chat);
-
+        
+        // If there are files attached, execute the native 3-step Max upload
         if (!empty($files)) {
+            $cleanCaption = $this->cleanMessageText($msg->msg);
+            $replyMid = $this->extractReplyMid($msg, $chat);
+
             foreach ($files as $fileItem) {
-                $caption = $fileItem['caption'] !== '' ? $fileItem['caption'] : $cleanText;
+                $caption = $fileItem['caption'] !== '' ? $this->cleanMessageText($fileItem['caption']) : $cleanCaption;
                 $this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg);
             }
-        } elseif (trim($cleanText) !== '') {
-            $this->sendMaxTextMessage($chat, $cleanText, $replyMid, $msg);
         }
+    }
+
+    public function cleanMessageText($text)
+    {
+        // 1. Remove [file=ID_HASH] embeds
+        $clean = preg_replace('#\[file=([0-9]+)_([a-z0-9]+)\]#i', '', (string)$text);
+        
+        // 2. Remove [quote=123]...[/quote] BBCode
+        $clean = preg_replace('#\[quote="?([0-9]+)"?\](.*?)\[/quote\]#is', '', $clean);
+
+        return trim($clean);
     }
 
     public function extractReplyMid($msg, $chat)
@@ -145,40 +149,6 @@ class erLhcoreClassExtensionLhcmax
         }
 
         return null;
-    }
-
-    public function sendMaxTextMessage($chat, $text, $replyMid = null, $msg = null)
-    {
-        $chatExternalId = $chat->incoming_chat instanceof erLhcoreClassModelChatIncoming ? $chat->incoming_chat->chat_external_id : (string)$chat->chat_external_id;
-        if (empty($chatExternalId)) {
-            return false;
-        }
-
-        $payload = [
-            'text' => $text,
-            'format' => 'html'
-        ];
-
-        if (!empty($replyMid)) {
-            $payload['link'] = [
-                'type' => 'reply',
-                'mid' => (string)$replyMid
-            ];
-        }
-
-        $host = rtrim($this->getSetting('host', 'https://platform-api2.max.ru'), '/');
-        $url = $host . '/messages?chat_id=' . urlencode($chatExternalId);
-
-        $response = $this->executeCurl($url, 'POST', $payload, [
-            'Content-Type: application/json',
-            'Authorization: ' . $this->getSetting('token')
-        ]);
-
-        if (!empty($response['data']['body']['mid']) && $msg instanceof erLhcoreClassModelmsg) {
-            $this->saveMessageMid($msg, $response['data']['body']['mid']);
-        }
-
-        return $response['http_code'] >= 200 && $response['http_code'] < 300;
     }
 
     public function sendMaxMediaFile($chat, $file, $caption = '', $replyMid = null, $msg = null)
@@ -317,11 +287,6 @@ class erLhcoreClassExtensionLhcmax
             }
         }
         return $files;
-    }
-
-    private function stripFileEmbeds($text)
-    {
-        return trim(preg_replace('#\[file=([0-9]+)_([a-z0-9]+)\]#i', '', (string)$text));
     }
 
     private function executeCurl($url, $method, $data, $headers = [])
