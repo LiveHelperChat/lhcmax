@@ -5,7 +5,7 @@ $ext = erLhcoreClassExtensionLhcmax::getInstance();
 
 $testResult = null;
 
-if (isset($_POST['SaveSettings'])) {
+if (isset($_POST['SaveSettings']) || isset($_POST['StoreOptionsMax']) || isset($_POST['StoreOptionsMaxRemove'])) {
     if (!isset($_POST['csfr_token']) || !$currentUser->validateCSFRToken($_POST['csfr_token'])) {
         erLhcoreClassModule::redirect('max/settings');
         exit;
@@ -17,6 +17,14 @@ if (isset($_POST['SaveSettings'])) {
         'token' => trim($_POST['token']),
         'debug' => isset($_POST['debug'])
     ]);
+
+    if (isset($_POST['StoreOptionsMax'])) {
+        \LiveHelperChatExtension\lhcmax\providers\MaxLiveHelperChatActivator::installOrUpdate();
+    }
+
+    if (isset($_POST['StoreOptionsMaxRemove'])) {
+        \LiveHelperChatExtension\lhcmax\providers\MaxLiveHelperChatActivator::remove();
+    }
 
     $tpl->set('updated', 'done');
 }
@@ -47,14 +55,17 @@ if (isset($_POST['TestConnection'])) {
     ];
 }
 
-$incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['scope' => 'max']]);
+$incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
 if (!$incomingWebhook) {
-    $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
+    $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['scope' => 'max']]);
 }
+
+$restAPI = erLhcoreClassModelGenericBotRestAPI::findOne(['filter' => ['name' => 'Max']]);
 
 $tpl->set('settings', $settings);
 $tpl->set('testResult', $testResult);
 $tpl->set('incomingWebhook', $incomingWebhook);
+$tpl->set('restAPI', $restAPI);
 
 $Result['content'] = $tpl->fetch();
 $Result['path'] = array(

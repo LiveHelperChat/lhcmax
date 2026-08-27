@@ -1,4 +1,4 @@
-<h1 class="attr-header">Max Messenger Settings</h1>
+<h1 class="attr-header">Max Messenger Options</h1>
 
 <?php if (isset($updated) && $updated == 'done') : $msg = erTranslationClassLhTranslation::getInstance()->getTranslation('chat/onlineusers','Settings updated'); ?>
     <?php include(erLhcoreClassDesign::designtpl('lhkernel/alert_success.tpl.php'));?>
@@ -18,7 +18,7 @@
     <?php endif; ?>
 <?php endif; ?>
 
-<form action="<?php echo erLhcoreClassDesign::baseurl('max/settings')?>" method="post" autocomplete="off">
+<form action="<?php echo erLhcoreClassDesign::baseurl('max/settings')?>" method="post" autocomplete="off" ng-non-bindable>
     <?php include(erLhcoreClassDesign::designtpl('lhkernel/csfr_token.tpl.php'));?>
 
     <div class="card mb-3">
@@ -62,29 +62,50 @@
             <button type="submit" name="TestConnection" class="btn btn-outline-success btn-sm"><i class="material-icons">flash_on</i> Test connection</button>
         </div>
     </div>
-</form>
 
-<div class="card mb-3">
-    <div class="card-header bg-light fw-bold">
-        📋 Integration Overview & Status
-    </div>
-    <div class="card-body">
-        <h6>1. Incoming Webhook</h6>
-        <?php if ($incomingWebhook) : ?>
-            <p><span class="badge bg-success">Configured</span> (Scope: <code><?php echo htmlspecialchars($incomingWebhook->scope);?></code>, Dep ID: <code><?php echo (int)$incomingWebhook->dep_id;?></code>)</p>
-            <div class="form-group mb-3">
-                <label class="form-label fw-bold">Callback URL (Set this in Max bot settings):</label>
-                <input readonly type="text" class="form-control form-control-sm font-monospace" value="https://<?php echo $_SERVER['HTTP_HOST']?><?php echo erLhcoreClassDesign::baseurl('genericbot/incomingwebhook')?>/<?php echo (int)$incomingWebhook->id?>/<?php echo htmlspecialchars($incomingWebhook->identifier)?>">
+    <div class="card mb-3">
+        <div class="card-header bg-light fw-bold">
+            📋 Component Status & Configuration
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <h6 class="fw-bold mb-1">1. Incoming Webhook</h6>
+                <?php if ($incomingWebhook) : ?>
+                    <span class="badge bg-success">Exists</span> (Scope: <code><?php echo htmlspecialchars($incomingWebhook->scope);?></code>, Dep ID: <code><?php echo (int)$incomingWebhook->dep_id;?></code>)
+                    <div class="form-group mt-2">
+                        <label class="form-label fw-bold small">Callback URL for Max integration:</label>
+                        <input readonly type="text" class="form-control form-control-sm font-monospace" value="https://<?php echo $_SERVER['HTTP_HOST']?><?php echo erLhcoreClassDesign::baseurl('genericbot/incomingwebhook')?>/<?php echo (int)$incomingWebhook->id?>/<?php echo htmlspecialchars($incomingWebhook->identifier)?>">
+                    </div>
+                <?php else : ?>
+                    <span class="badge bg-danger">Missing</span>
+                    <p class="small text-muted mb-0">No incoming webhook found. Click "Save and Activate Max configuration" below to create it automatically.</p>
+                <?php endif; ?>
             </div>
-        <?php else : ?>
-            <p><span class="badge bg-warning text-dark">Missing</span> Create an incoming webhook with scope <code>max</code> in <em>Generic Bot &rarr; Incoming webhooks</em>.</p>
-        <?php endif; ?>
 
-        <h6>2. Outgoing Messages & Media Upload Flow</h6>
-        <p class="text-muted mb-2">This extension automatically hooks into Live Helper Chat event system to send operator and bot replies:</p>
-        <ul class="mb-0 text-muted">
-            <li><strong>Text & Quotes:</strong> Dispatches messages via <code>POST /messages</code> with native quote / reply-to linking (<code>mid</code>).</li>
-            <li><strong>Media Upload:</strong> Automatically handles 3-step upload for photos, audio, voice, video, and documents (<code>POST /uploads</code> &rarr; binary upload &rarr; <code>POST /messages</code> with attachment token).</li>
-        </ul>
+            <hr class="my-3">
+
+            <div class="mb-3">
+                <h6 class="fw-bold mb-1">2. Rest API Configuration</h6>
+                <?php if ($restAPI) : ?>
+                    <span class="badge bg-success">Exists</span> (ID: <code>#<?php echo (int)$restAPI->id;?></code>, Name: <code><?php echo htmlspecialchars($restAPI->name);?></code>)
+                    <p class="small text-muted mt-1 mb-0"><a target="_blank" href="<?php echo erLhcoreClassDesign::baseurl('genericbot/editrestapi')?>/<?php echo (int)$restAPI->id?>">Edit REST API settings &rarr;</a></p>
+                <?php else : ?>
+                    <span class="badge bg-danger">Missing</span>
+                    <p class="small text-muted mb-0">REST API template is not configured. Click "Save and Activate Max configuration" below to create it automatically.</p>
+                <?php endif; ?>
+            </div>
+
+            <hr class="my-3">
+
+            <div class="mb-3">
+                <h6 class="fw-bold mb-1">3. Event Listeners & Media Upload</h6>
+                <p class="text-success small mb-1"><i class="material-icons fs14 align-middle">check_circle</i> chat.web_add_msg_admin (Native 3-step upload: Init &rarr; Upload &rarr; Dispatch)</p>
+                <p class="text-success small mb-0"><i class="material-icons fs14 align-middle">check_circle</i> Message & quote synchronization (2-way mid tracking)</p>
+            </div>
+        </div>
+        <div class="card-footer bg-light d-flex gap-2">
+            <input type="submit" class="btn btn-secondary btn-sm" name="StoreOptionsMax" value="⚡ Save and Activate Max configuration" />
+            <input type="submit" class="btn btn-warning btn-sm" name="StoreOptionsMaxRemove" value="🗑️ Save and Remove Max configuration" />
+        </div>
     </div>
-</div>
+</form>
