@@ -33,6 +33,9 @@ class erLhcoreClassExtensionLhcmax
     {
         $dispatcher = erLhcoreClassChatEventDispatcher::getInstance();
 
+        // Register design path for admin templates and menu
+        erLhcoreClassDesign::addThemePath('lhcmaxtheme', dirname(__DIR__) . '/design/lhcmaxtheme');
+
         // Listen for messages added by operators or bots
         $dispatcher->listen('chat.web_add_msg_admin', array($this, 'onWebAddMsgAdmin'));
     }
@@ -71,7 +74,7 @@ class erLhcoreClassExtensionLhcmax
         $msg = $params['msg'];
         $chat = $params['chat'];
 
-        if (!$this->isMaxChat($chat)) {
+        if (!$this->isMaxChat($chat) || !$this->getSetting('enabled', true)) {
             return;
         }
 
