@@ -90,6 +90,7 @@
                         <label class="form-label fw-bold small">Callback URL for Max integration:</label>
                         <input readonly type="text" class="form-control form-control-sm font-monospace" value="https://<?php echo $_SERVER['HTTP_HOST']?><?php echo erLhcoreClassDesign::baseurl('genericbot/incomingwebhook')?>/<?php echo (int)$incomingWebhook->id?>/<?php echo htmlspecialchars($incomingWebhook->identifier)?>">
                     </div>
+                    <p class="small text-muted mt-1 mb-0"><a target="_blank" href="<?php echo erLhcoreClassDesign::baseurl('webhooks/editincoming')?>/<?php echo (int)$incomingWebhook->id?>">Edit Incoming Webhook settings &rarr;</a></p>
                 <?php else : ?>
                     <span class="badge bg-danger">Missing</span>
                     <p class="small text-muted mb-0">No incoming webhook found. Click "Save and Activate Max configuration" below to create it automatically.</p>
