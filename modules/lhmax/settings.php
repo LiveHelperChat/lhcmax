@@ -7,7 +7,7 @@ $settings = file_exists($settingsFile) ? include $settingsFile : [
     'enabled' => true,
     'host' => 'https://platform-api2.max.ru',
     'token' => '',
-    'debug' => true
+    'debug' => false
 ];
 
 $testResult = null;
@@ -26,7 +26,7 @@ if (isset($_POST['SaveSettings'])) {
     $content = "<?php\n\nreturn " . var_export($settings, true) . ";\n\n?>";
     file_put_contents($settingsFile, $content);
 
-    $tpl->set('updated', true);
+    $tpl->set('updated', 'done');
 }
 
 if (isset($_POST['TestConnection'])) {
@@ -53,8 +53,17 @@ if (isset($_POST['TestConnection'])) {
     ];
 }
 
+$incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['scope' => 'max']]);
+if (!$incomingWebhook) {
+    $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
+}
+
+$restAPI = erLhcoreClassModelGenericBotRestAPI::findOne(['filter' => ['name' => 'Max']]);
+
 $tpl->set('settings', $settings);
 $tpl->set('testResult', $testResult);
+$tpl->set('incomingWebhook', $incomingWebhook);
+$tpl->set('restAPI', $restAPI);
 
 $Result['content'] = $tpl->fetch();
 $Result['path'] = array(
