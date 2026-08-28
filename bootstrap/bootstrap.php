@@ -122,12 +122,18 @@ class erLhcoreClassExtensionLhcmax
 
             $fileIndex = 0;
             foreach ($files as $fileItem) {
+                $fileKey = isset($fileItem['key']) ? (string)$fileItem['key'] : null;
+                if ($fileKey !== null && $this->isMediaFileSent($msg, $fileKey)) {
+                    $fileIndex++;
+                    continue;
+                }
+
                 // A multi-file LHC message is one logical message. Keep its
                 // text as the caption on the first upload only.
                 $caption = $fileIndex === 0
                     ? (!empty($fileItem['caption']) ? $this->cleanMessageText($fileItem['caption']) : $cleanCaption)
                     : '';
-                $this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg);
+                $this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg, $fileKey);
                 $fileIndex++;
             }
         }
@@ -185,7 +191,7 @@ class erLhcoreClassExtensionLhcmax
         return null;
     }
 
-    public function sendMaxMediaFile($chat, $file, $caption = '', $replyMid = null, $msg = null)
+    public function sendMaxMediaFile($chat, $file, $caption = '', $replyMid = null, $msg = null, $fileKey = null)
     {
         $chatExternalId = $this->getChatExternalId($chat);
         $host = $this->getApiHost();
@@ -286,7 +292,7 @@ class erLhcoreClassExtensionLhcmax
 
         $mid = self::extractMessageMid($finalResp);
         if ($mid !== null && $msg instanceof erLhcoreClassModelmsg) {
-            $this->saveMessageMid($msg, $mid);
+            $this->saveMessageMid($msg, $mid, $fileKey !== null ? (string)$fileKey : $this->getMediaFileKey($file));
         }
 
         return self::isSuccessfulResponse($finalResp);
@@ -308,7 +314,7 @@ class erLhcoreClassExtensionLhcmax
         return $response;
     }
 
-    private function saveMessageMid($msg, $mid)
+    private function saveMessageMid($msg, $mid, $fileKey = null)
     {
         $mid = trim((string)$mid);
         if ($mid === '' || !($msg instanceof erLhcoreClassModelmsg) || (int)$msg->id <= 0) {
@@ -350,6 +356,16 @@ class erLhcoreClassExtensionLhcmax
             })));
             $meta['iwh_msg_ids'] = $ids;
             $meta['iwh_msg_id'] = $mid;
+            if ($fileKey !== null && trim((string)$fileKey) !== '') {
+                if (!isset($meta['lhcmax_media']) || !is_array($meta['lhcmax_media'])) {
+                    $meta['lhcmax_media'] = array();
+                }
+                $meta['lhcmax_media'][(string)$fileKey] = array(
+                    'mid' => $mid,
+                    'status' => 'sent',
+                    'sent_at' => time()
+                );
+            }
             unset($meta['lhcmax_pending']);
             $encoded = json_encode($meta, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
             if ($encoded === false) {
@@ -385,12 +401,53 @@ class erLhcoreClassExtensionLhcmax
                     $files[] = [
                         'file' => $file,
                         'embed' => $match[0],
+                        'key' => $this->getMediaFileKey($file, $match[0]),
                         'caption' => ''
                     ];
                 }
             }
         }
         return $files;
+    }
+
+    private function getMediaFileKey($file, $embed = '')
+    {
+        $embed = trim((string)$embed);
+        if ($embed !== '') {
+            if (preg_match('#^\[file=([0-9]+)_([a-z0-9]+)\]$#i', $embed, $match)) {
+                return (int)$match[1] . '_' . strtolower($match[2]);
+            }
+            return null;
+        }
+        if (!is_object($file)) {
+            return null;
+        }
+        $id = (int)($file->id ?? 0);
+        $hash = strtolower(trim((string)($file->security_hash ?? '')));
+        if ($id <= 0 || $hash === '') {
+            return null;
+        }
+        return $id . '_' . $hash;
+    }
+
+    private function isMediaFileSent($msg, $fileKey)
+    {
+        $fileKey = trim((string)$fileKey);
+        if ($fileKey === '') {
+            return false;
+        }
+        $meta = $this->getMessageMeta($msg);
+        $media = $meta['lhcmax_media'] ?? null;
+        if (!is_array($media) || !array_key_exists($fileKey, $media)) {
+            return false;
+        }
+        $entry = $media[$fileKey];
+        if (is_scalar($entry)) {
+            return trim((string)$entry) !== '';
+        }
+        return is_array($entry)
+            && strtolower((string)($entry['status'] ?? 'sent')) === 'sent'
+            && trim((string)($entry['mid'] ?? '')) !== '';
     }
 
     private function getMessageMeta($msg)

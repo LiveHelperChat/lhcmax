@@ -66,6 +66,25 @@ maxContractExpect(
     is_string($maxBootstrap) && strpos($maxBootstrap, "'POST_MULTIPART', \$postFields, []") !== false,
     'multipart upload must not carry the bot authorization header'
 );
+maxContractExpect(
+    is_string($maxBootstrap) && strpos($maxBootstrap, 'lhcmax_media') !== false,
+    'media delivery keeps per-file delivery metadata'
+);
+
+$fileKeyMethod = $reflection->getMethod('getMediaFileKey');
+$fileKeyMethod->setAccessible(true);
+$fileStatusMethod = $reflection->getMethod('isMediaFileSent');
+$fileStatusMethod->setAccessible(true);
+$file = (object)array('id' => 42, 'security_hash' => 'AbCd');
+$fileKey = $fileKeyMethod->invoke($instance, $file);
+maxContractExpect($fileKey === '42_abcd', 'media file key is stable and normalized');
+maxContractExpect($fileKeyMethod->invoke($instance, $file, '[file=42_AbCd]') === '42_abcd', 'embed key is normalized');
+maxContractExpect($fileKeyMethod->invoke($instance, $file, '[file=42_other] trailing') === null, 'malformed embed does not create a tracking key');
+$messageWithMediaMeta = (object)array('meta_msg_array' => array(
+    'lhcmax_media' => array($fileKey => array('mid' => 'max-mid-42', 'status' => 'sent'))
+));
+maxContractExpect($fileStatusMethod->invoke($instance, $messageWithMediaMeta, $fileKey) === true, 'sent media file is recognized');
+maxContractExpect($fileStatusMethod->invoke($instance, $messageWithMediaMeta, '99_missing') === false, 'untracked media file is not skipped');
 
 $midMethod = $reflection->getMethod('extractMessageMid');
 $midMethod->setAccessible(true);

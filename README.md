@@ -7,6 +7,7 @@ Standalone two-way integration between Live Helper Chat and Max Messenger.
 - Incoming Max messages through an LHC incoming webhook.
 - Operator and bot text delivery through the configured LHC REST API action.
 - Native three-step media delivery: create an upload session, upload the local file, then send a message with the returned token.
+- Per-file delivery tracking prevents duplicate uploads when LHC retries a message event, while allowing partially failed multi-file messages to resume.
 - Reply synchronization through Max message IDs, including native media replies.
 - One-click creation or update of the incoming webhook and the optional REST action used for typing indicators.
 - No Live Helper Chat core changes required.
