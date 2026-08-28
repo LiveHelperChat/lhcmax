@@ -235,9 +235,10 @@ class erLhcoreClassExtensionLhcmax
         $cFile = new CurlFile($filePath, $mime !== '' ? $mime : 'application/octet-stream', $name !== '' ? $name : 'file');
         $postFields = ['data' => $cFile];
 
-        // MAX requires the bot token on the multipart upload request too. Do
-        // not add Content-Type here: cURL must generate the boundary.
-        $uploadResp = $this->executeCurl($uploadUrl, 'POST_MULTIPART', $postFields, $this->authHeaders(false, $token));
+        // The upload URL is a signed, type-specific storage endpoint. Keep
+        // the bot token on the Max API calls only; it must not be sent to the
+        // external upload host. cURL generates the multipart boundary.
+        $uploadResp = $this->executeCurl($uploadUrl, 'POST_MULTIPART', $postFields, []);
         if (!self::isSuccessfulResponse($uploadResp)) {
             return false;
         }

@@ -63,8 +63,8 @@ maxContractExpect(
     'only the first file in a multi-file message receives the caption'
 );
 maxContractExpect(
-    is_string($maxBootstrap) && strpos($maxBootstrap, "'POST_MULTIPART', \$postFields, \$this->authHeaders(false, \$token)") !== false,
-    'multipart upload must carry the Max authorization header'
+    is_string($maxBootstrap) && strpos($maxBootstrap, "'POST_MULTIPART', \$postFields, []") !== false,
+    'multipart upload must not carry the bot authorization header'
 );
 
 $midMethod = $reflection->getMethod('extractMessageMid');
