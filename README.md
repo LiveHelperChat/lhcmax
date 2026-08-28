@@ -31,6 +31,11 @@ Then open /index.php/site_admin/max/settings:
 3. Save and activate the Max configuration.
 4. Register the displayed callback URL in the Max bot settings.
 
+The generated callback uses Live Helper Chat's incoming-webhook endpoint:
+`/index.php/webhooks/incoming/<identifier>` (the exact base path depends on
+the LHC installation). The identifier is the only secret-bearing part of the
+URL; keep the callback URL private.
+
 The bot token is stored only in the ignored local settings/settings.ini.php file and in the installed LHC REST configuration. The repository template intentionally contains no token.
 
 ## Architecture

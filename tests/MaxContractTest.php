@@ -87,6 +87,17 @@ $template = json_decode(file_get_contents(__DIR__ . '/../doc/max/rest-api.json')
 maxContractExpect(is_array($template) && !empty($template['configuration']), 'REST template is valid outer JSON');
 $templateConfiguration = json_decode($template['configuration'], true);
 maxContractExpect(is_array($templateConfiguration), 'REST template configuration is valid JSON');
+
+$settingsTemplate = file_get_contents(__DIR__ . '/../design/lhcmaxtheme/tpl/lhmax/settings.tpl.php');
+maxContractExpect(
+    is_string($settingsTemplate) && strpos($settingsTemplate, "baseurldirect('webhooks/incoming')") !== false,
+    'settings page must expose the core incoming-webhook callback endpoint'
+);
+maxContractExpect(
+    is_string($settingsTemplate) && strpos($settingsTemplate, 'genericbot/incomingwebhook') === false,
+    'settings page must not expose the removed genericbot callback endpoint'
+);
+
 $templateNames = array_map(function ($method) { return $method['name'] ?? ''; }, $templateConfiguration['parameters'] ?? array());
 maxContractExpect(in_array('SendMessage', $templateNames, true), 'REST template keeps SendMessage text action');
 maxContractExpect(in_array('Send typing', $templateNames, true), 'REST template keeps typing action');

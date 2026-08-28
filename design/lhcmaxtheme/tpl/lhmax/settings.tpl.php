@@ -94,7 +94,7 @@
                     <span class="badge bg-success">Exists</span> (Scope: <code><?php echo htmlspecialchars($incomingWebhook->scope);?></code>, Dep ID: <code><?php echo (int)$incomingWebhook->dep_id;?></code>)
                     <div class="form-group mt-2">
                         <label class="form-label fw-bold small">Callback URL for Max integration:</label>
-                        <input readonly type="text" class="form-control form-control-sm font-monospace" value="<?php echo htmlspecialchars(erLhcoreClassSystem::getHost() . erLhcoreClassDesign::baseurl('genericbot/incomingwebhook') . '/' . (int)$incomingWebhook->id . '/' . $incomingWebhook->identifier); ?>">
+                        <input readonly type="text" class="form-control form-control-sm font-monospace" value="<?php echo htmlspecialchars(erLhcoreClassSystem::getHost() . erLhcoreClassDesign::baseurldirect('webhooks/incoming') . '/' . $incomingWebhook->identifier); ?>">
                     </div>
                     <p class="small text-muted mt-1 mb-0"><a target="_blank" href="<?php echo erLhcoreClassDesign::baseurl('webhooks/editincoming')?>/<?php echo (int)$incomingWebhook->id?>">Edit Incoming Webhook settings &rarr;</a></p>
                 <?php else : ?>
