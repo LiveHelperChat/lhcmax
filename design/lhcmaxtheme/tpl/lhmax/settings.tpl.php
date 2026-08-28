@@ -60,8 +60,8 @@
 
             <div class="form-group mb-3">
                 <label class="form-label fw-bold">Bot API Token</label>
-                <input type="password" class="form-control font-monospace" name="token" autocomplete="new-password" spellcheck="false" value="<?php echo htmlspecialchars($settings['token']);?>" placeholder="Max bot token">
-                <div class="form-text text-muted">Secret Bot Token from Max platform used for message dispatch and 3-step media upload.</div>
+                <input type="password" class="form-control font-monospace" name="token" autocomplete="new-password" spellcheck="false" value="" placeholder="<?php echo !empty($settings['token']) ? 'Leave blank to keep current token' : 'Max bot token'; ?>">
+                <div class="form-text text-muted">Secret Bot Token from Max platform used for message dispatch and 3-step media upload. Leave blank to keep the current token.</div>
             </div>
 
             <div class="form-group mb-3">

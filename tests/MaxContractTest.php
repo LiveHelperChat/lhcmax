@@ -127,6 +127,10 @@ maxContractExpect(
     is_string($settingsTemplate) && strpos($settingsTemplate, 'genericbot/incomingwebhook') === false,
     'settings page must not expose the removed genericbot callback endpoint'
 );
+maxContractExpect(
+    is_string($settingsTemplate) && strpos($settingsTemplate, 'value="<?php echo htmlspecialchars($settings[\'token\']);?>"') === false,
+    'settings page must not render the stored Max token in HTML'
+);
 
 $templateNames = array_map(function ($method) { return $method['name'] ?? ''; }, $templateConfiguration['parameters'] ?? array());
 maxContractExpect(in_array('SendMessage', $templateNames, true), 'REST template keeps SendMessage text action');
