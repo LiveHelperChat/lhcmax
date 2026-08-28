@@ -270,7 +270,10 @@ class erLhcoreClassExtensionLhcmax
             ];
         }
 
-        $finalResp = $this->executeCurl($msgUrl, 'POST', $msgPayload, $this->authHeaders(true, $token));
+        // Max may accept the upload before its attachment processor has made
+        // the token usable by /messages. Give the processor a short bounded
+        // window and retry only the documented not-ready response.
+        $finalResp = $this->sendMaxMessageWithAttachmentRetry($msgUrl, $msgPayload, $this->authHeaders(true, $token));
 
         $mid = self::extractMessageMid($finalResp);
         if ($mid !== null && $msg instanceof erLhcoreClassModelmsg) {
@@ -278,6 +281,22 @@ class erLhcoreClassExtensionLhcmax
         }
 
         return self::isSuccessfulResponse($finalResp);
+    }
+
+    private function sendMaxMessageWithAttachmentRetry($url, array $payload, array $headers)
+    {
+        $response = array('http_code' => 0, 'body' => '', 'data' => null, 'curl_error' => '');
+        // The first delay is intentional: Max documents a short processing
+        // pause after upload, followed by increasing intervals on failure.
+        foreach (array(500000, 1000000, 2000000) as $delay) {
+            usleep($delay);
+            $response = $this->executeCurl($url, 'POST', $payload, $headers);
+            if (!self::isAttachmentNotReadyResponse($response)) {
+                break;
+            }
+        }
+
+        return $response;
     }
 
     private function saveMessageMid($msg, $mid)
@@ -481,6 +500,28 @@ class erLhcoreClassExtensionLhcmax
     private static function isSuccessfulResponse($response)
     {
         return is_array($response) && isset($response['http_code']) && (int)$response['http_code'] >= 200 && (int)$response['http_code'] < 300 && ($response['body'] ?? false) !== false;
+    }
+
+    private static function isAttachmentNotReadyResponse($response)
+    {
+        if (!is_array($response)) {
+            return false;
+        }
+
+        $containsCode = function ($value) use (&$containsCode) {
+            if (is_array($value)) {
+                foreach ($value as $child) {
+                    if ($containsCode($child)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+
+            return is_scalar($value) && strpos(strtolower((string)$value), 'attachment.not.ready') !== false;
+        };
+
+        return $containsCode($response['data'] ?? null) || $containsCode($response['body'] ?? null);
     }
 
     private static function extractMessageMid($response)

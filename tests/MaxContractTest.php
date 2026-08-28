@@ -72,6 +72,17 @@ $responseMethod->setAccessible(true);
 $token = $responseMethod->invoke(null, array('photos' => array('abc' => array('token' => 'photo-token'))), array('photos.*.token'));
 maxContractExpect($token === 'photo-token', 'associative photo token is extracted');
 
+$notReadyMethod = $reflection->getMethod('isAttachmentNotReadyResponse');
+$notReadyMethod->setAccessible(true);
+maxContractExpect(
+    $notReadyMethod->invoke(null, array('http_code' => 400, 'data' => array('code' => 'attachment.not.ready'), 'body' => '{}')) === true,
+    'attachment.not.ready response is detected'
+);
+maxContractExpect(
+    $notReadyMethod->invoke(null, array('http_code' => 400, 'data' => array('code' => 'validation.error'), 'body' => '{}')) === false,
+    'unrelated Max errors are not retried'
+);
+
 $template = json_decode(file_get_contents(__DIR__ . '/../doc/max/rest-api.json'), true);
 maxContractExpect(is_array($template) && !empty($template['configuration']), 'REST template is valid outer JSON');
 $templateConfiguration = json_decode($template['configuration'], true);
