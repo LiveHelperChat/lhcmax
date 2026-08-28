@@ -7,7 +7,11 @@ class MaxLiveHelperChatActivator
 {
     public static function remove()
     {
-        if ($incomingWebhook = \erLhcoreClassModelChatIncomingWebhook::findOne(array('filter' => array('name' => 'MaxWebhook')))) {
+        $incomingWebhook = \erLhcoreClassModelChatIncomingWebhook::findOne(array('filter' => array('name' => 'MaxWebhook')));
+        if (!$incomingWebhook) {
+            $incomingWebhook = \erLhcoreClassModelChatIncomingWebhook::findOne(array('filter' => array('scope' => 'max')));
+        }
+        if ($incomingWebhook) {
             $incomingWebhook->removeThis();
         }
 

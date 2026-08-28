@@ -120,9 +120,15 @@ class erLhcoreClassExtensionLhcmax
             $cleanCaption = $this->cleanMessageText($msg->msg ?? '');
             $replyMid = $this->extractReplyMid($msg, $chat);
 
+            $fileIndex = 0;
             foreach ($files as $fileItem) {
-                $caption = !empty($fileItem['caption']) ? $this->cleanMessageText($fileItem['caption']) : $cleanCaption;
+                // A multi-file LHC message is one logical message. Keep its
+                // text as the caption on the first upload only.
+                $caption = $fileIndex === 0
+                    ? (!empty($fileItem['caption']) ? $this->cleanMessageText($fileItem['caption']) : $cleanCaption)
+                    : '';
                 $this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg);
+                $fileIndex++;
             }
         }
     }
@@ -132,8 +138,8 @@ class erLhcoreClassExtensionLhcmax
         // 1. Remove [file=ID_HASH] embeds
         $clean = preg_replace('#\[file=([0-9]+)_([a-z0-9]+)\]#i', '', (string)$text);
         
-        // 2. Remove [quote=123]...[/quote] BBCode
-        $clean = preg_replace('#\[quote="?([0-9]+)"?\](.*?)\[/quote\]#is', '', $clean);
+        // 2. Remove both numeric and local-only [quote]...[/quote] BBCode.
+        $clean = preg_replace('#\[quote(?:=[^\]]+)?\](.*?)\[/quote\]#is', '', $clean);
 
         // Captions are sent as plain Max text. Strip raw markup while leaving
         // LHC BBCode untouched for installations that render it downstream.
@@ -229,7 +235,9 @@ class erLhcoreClassExtensionLhcmax
         $cFile = new CurlFile($filePath, $mime !== '' ? $mime : 'application/octet-stream', $name !== '' ? $name : 'file');
         $postFields = ['data' => $cFile];
 
-        $uploadResp = $this->executeCurl($uploadUrl, 'POST_MULTIPART', $postFields, []);
+        // MAX requires the bot token on the multipart upload request too. Do
+        // not add Content-Type here: cURL must generate the boundary.
+        $uploadResp = $this->executeCurl($uploadUrl, 'POST_MULTIPART', $postFields, $this->authHeaders(false, $token));
         if (!self::isSuccessfulResponse($uploadResp)) {
             return false;
         }

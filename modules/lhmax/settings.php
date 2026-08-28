@@ -58,6 +58,10 @@ if (isset($_POST['SaveSettings']) || isset($_POST['StoreOptionsMax']) || isset($
 $settings = $ext->getSettings();
 
 $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['name' => 'MaxWebhook']]);
+if (!$incomingWebhook) {
+    // Older installations may have a Max-scoped webhook under a custom name.
+    $incomingWebhook = erLhcoreClassModelChatIncomingWebhook::findOne(['filter' => ['scope' => 'max']]);
+}
 
 $restAPI = erLhcoreClassModelGenericBotRestAPI::findOne(['filter' => ['name' => 'Max']]);
 

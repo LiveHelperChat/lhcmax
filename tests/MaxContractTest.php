@@ -53,8 +53,19 @@ maxContractExpect($invalidTest['success'] === false && strpos($invalidTest['resp
 
 $clean = $instance->cleanMessageText('[quote=12]old[/quote] [file=10_abcdef0123456789] <script>x</script> [b]bold[/b]');
 maxContractExpect(strpos($clean, '[quote=') === false && strpos($clean, '[file=') === false, 'quote and file embeds are removed');
+maxContractExpect(strpos($instance->cleanMessageText('[quote]local quote[/quote] caption'), '[quote]') === false, 'local-only quote embeds are removed');
 maxContractExpect(stripos($clean, '<script') === false, 'unsafe HTML is removed');
 maxContractExpect(strpos($clean, '[b]bold[/b]') !== false, 'caption text is not rewritten into unsupported HTML');
+
+$maxBootstrap = file_get_contents(__DIR__ . '/../bootstrap/bootstrap.php');
+maxContractExpect(
+    is_string($maxBootstrap) && strpos($maxBootstrap, '$fileIndex === 0') !== false,
+    'only the first file in a multi-file message receives the caption'
+);
+maxContractExpect(
+    is_string($maxBootstrap) && strpos($maxBootstrap, "'POST_MULTIPART', \$postFields, \$this->authHeaders(false, \$token)") !== false,
+    'multipart upload must carry the Max authorization header'
+);
 
 $midMethod = $reflection->getMethod('extractMessageMid');
 $midMethod->setAccessible(true);
