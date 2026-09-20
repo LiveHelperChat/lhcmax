@@ -191,6 +191,65 @@ class erLhcoreClassExtensionLhcmax
         return null;
     }
 
+    public static function resolveMediaFileSource($file)
+    {
+        if (!($file instanceof erLhcoreClassModelChatFile) && !is_object($file)) {
+            return null;
+        }
+
+        $filePath = '';
+        if ($file instanceof erLhcoreClassModelChatFile) {
+            $filePath = (string)$file->file_path_server;
+        } elseif (is_object($file) && (isset($file->file_path_server) || property_exists($file, 'file_path_server'))) {
+            $filePath = (string)$file->file_path_server;
+        }
+
+        $extension = strtolower((string)($file->extension ?? ''));
+        $fileMime = (string)($file->type ?? '');
+        $fileName = (string)($file->upload_name ?? '');
+
+        // If file is an animated sticker (.tgs), Max Messenger cannot render .tgs files.
+        // If a companion raster thumbnail exists (e.g. from Telegram or web), send it as an image.
+        if ($extension === 'tgs') {
+            $meta = [];
+            if ($file instanceof erLhcoreClassModelChatFile) {
+                $meta = (array)$file->meta_msg_array;
+            } elseif (is_object($file) && (isset($file->meta_msg_array) || property_exists($file, 'meta_msg_array'))) {
+                $meta = (array)$file->meta_msg_array;
+            }
+            $thumbPath = null;
+            $thumbExt = 'webp';
+            $thumbMime = 'image/webp';
+
+            if (!empty($meta['thumb']['path']) && is_file($meta['thumb']['path']) && is_readable($meta['thumb']['path'])) {
+                $thumbPath = $meta['thumb']['path'];
+                $thumbExt = $meta['thumb']['ext'] ?? 'webp';
+                $thumbMime = $meta['thumb']['type'] ?? 'image/webp';
+            } elseif ($filePath !== '') {
+                $candidates = glob(dirname($filePath) . '/' . basename($filePath) . '_thumb.*');
+                if (!empty($candidates) && is_file($candidates[0]) && is_readable($candidates[0])) {
+                    $thumbPath = $candidates[0];
+                    $thumbExt = pathinfo($thumbPath, PATHINFO_EXTENSION);
+                    $thumbMime = in_array(strtolower($thumbExt), ['jpg', 'jpeg']) ? 'image/jpeg' : 'image/webp';
+                }
+            }
+
+            if ($thumbPath !== null) {
+                $filePath = $thumbPath;
+                $extension = strtolower($thumbExt);
+                $fileMime = $thumbMime;
+                $fileName = pathinfo($fileName, PATHINFO_FILENAME) . '.' . $thumbExt;
+            }
+        }
+
+        return [
+            'file_path' => $filePath,
+            'extension' => $extension,
+            'mime' => $fileMime,
+            'name' => $fileName,
+        ];
+    }
+
     public function sendMaxMediaFile($chat, $file, $caption = '', $replyMid = null, $msg = null, $fileKey = null)
     {
         $chatExternalId = $this->getChatExternalId($chat);
@@ -200,18 +259,27 @@ class erLhcoreClassExtensionLhcmax
             return false;
         }
 
-        $filePath = $file->file_path_server;
+        $mediaSource = self::resolveMediaFileSource($file);
+        if ($mediaSource === null) {
+            return false;
+        }
+
+        $filePath = $mediaSource['file_path'];
+        $extension = $mediaSource['extension'];
+        $fileMime = $mediaSource['mime'];
+        $fileName = $mediaSource['name'];
+
         if (!is_string($filePath) || !is_file($filePath) || !is_readable($filePath)) {
             return false;
         }
 
         // Determine type: image, audio, video, file
         $fileType = 'file';
-        if (strpos($file->type, 'image/') === 0 || in_array(strtolower($file->extension), ['jpg','jpeg','png','gif','webp','bmp'])) {
+        if (strpos($fileMime, 'image/') === 0 || in_array($extension, ['jpg','jpeg','png','gif','webp','bmp'])) {
             $fileType = 'image';
-        } elseif (strpos($file->type, 'audio/') === 0 || in_array(strtolower($file->extension), ['mp3','ogg','oga','wav','m4a','aac','opus'])) {
+        } elseif (strpos($fileMime, 'audio/') === 0 || in_array($extension, ['mp3','ogg','oga','wav','m4a','aac','opus'])) {
             $fileType = 'audio';
-        } elseif (strpos($file->type, 'video/') === 0 || in_array(strtolower($file->extension), ['mp4','mov','avi','mkv','webm'])) {
+        } elseif (strpos($fileMime, 'video/') === 0 || in_array($extension, ['mp4','mov','avi','mkv','webm'])) {
             $fileType = 'video';
         }
 
@@ -236,8 +304,8 @@ class erLhcoreClassExtensionLhcmax
         }
 
         // Step 2: Binary / Multipart Upload
-        $mime = preg_replace('/[\x00-\x1F\x7F]/', '', (string)$file->type);
-        $name = basename(preg_replace('/[\x00-\x1F\x7F]/', '', (string)$file->upload_name));
+        $mime = preg_replace('/[\x00-\x1F\x7F]/', '', (string)$fileMime);
+        $name = basename(preg_replace('/[\x00-\x1F\x7F]/', '', (string)$fileName));
         $cFile = new CurlFile($filePath, $mime !== '' ? $mime : 'application/octet-stream', $name !== '' ? $name : 'file');
         $postFields = ['data' => $cFile];
 

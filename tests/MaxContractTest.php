@@ -197,4 +197,60 @@ foreach ($merged['parameters'] as $method) {
 }
 maxContractExpect(($typing['header'][0]['value'] ?? '') === 'test-token', 'REST authorization token is synchronized');
 
+// Verify media resolution contracts
+maxContractExpect($reflection->hasMethod('resolveMediaFileSource'), 'resolveMediaFileSource method exists');
+$standardFile = (object)array(
+    'file_path_server' => '/tmp/test.jpg',
+    'extension' => 'jpg',
+    'type' => 'image/jpeg',
+    'upload_name' => 'test.jpg',
+    'meta_msg_array' => array(),
+);
+$resStd = $class::resolveMediaFileSource($standardFile);
+maxContractExpect(
+    is_array($resStd) && $resStd['file_path'] === '/tmp/test.jpg' && $resStd['extension'] === 'jpg' && $resStd['mime'] === 'image/jpeg',
+    'standard media resolves unmodified'
+);
+
+$tgsFileNoThumb = (object)array(
+    'file_path_server' => '/tmp/sticker.tgs',
+    'extension' => 'tgs',
+    'type' => 'application/gzip',
+    'upload_name' => 'sticker.tgs',
+    'meta_msg_array' => array(),
+);
+$resTgsNoThumb = $class::resolveMediaFileSource($tgsFileNoThumb);
+maxContractExpect(
+    is_array($resTgsNoThumb) && $resTgsNoThumb['extension'] === 'tgs' && $resTgsNoThumb['mime'] === 'application/gzip',
+    'tgs without thumbnail falls back to original file'
+);
+
+$tempThumbFile = tempnam(sys_get_temp_dir(), 'lhc_thumb_') . '.webp';
+file_put_contents($tempThumbFile, 'RIFFdummyWEBP');
+$tgsFileWithMetaThumb = (object)array(
+    'file_path_server' => '/tmp/animated.tgs',
+    'extension' => 'tgs',
+    'type' => 'application/gzip',
+    'upload_name' => 'animated.tgs',
+    'meta_msg_array' => array(
+        'thumb' => array(
+            'path' => $tempThumbFile,
+            'ext' => 'webp',
+            'type' => 'image/webp'
+        )
+    ),
+);
+$resMetaThumb = $class::resolveMediaFileSource($tgsFileWithMetaThumb);
+maxContractExpect(
+    is_array($resMetaThumb) && $resMetaThumb['file_path'] === $tempThumbFile && $resMetaThumb['extension'] === 'webp' && $resMetaThumb['mime'] === 'image/webp' && $resMetaThumb['name'] === 'animated.webp',
+    'tgs with thumbnail metadata resolves to raster image'
+);
+unlink($tempThumbFile);
+
+$webhookTemplate = json_decode(file_get_contents(__DIR__ . '/../doc/max/incoming-webhook.json'), true);
+maxContractExpect(is_array($webhookTemplate) && !empty($webhookTemplate['configuration']), 'Webhook template is valid outer JSON');
+$webhookConfig = json_decode($webhookTemplate['configuration'], true);
+maxContractExpect(is_array($webhookConfig), 'Webhook configuration is valid JSON');
+maxContractExpect(strpos($webhookConfig['msg_cond_img'] ?? '', 'sticker') !== false, 'Webhook configuration recognizes stickers as images');
+
 echo 'OK' . PHP_EOL;
