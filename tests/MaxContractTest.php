@@ -252,5 +252,6 @@ maxContractExpect(is_array($webhookTemplate) && !empty($webhookTemplate['configu
 $webhookConfig = json_decode($webhookTemplate['configuration'], true);
 maxContractExpect(is_array($webhookConfig), 'Webhook configuration is valid JSON');
 maxContractExpect(strpos($webhookConfig['msg_cond_img'] ?? '', 'sticker') !== false, 'Webhook configuration recognizes stickers as images');
+maxContractExpect(($webhookConfig['msg_body_2'] ?? '') === '/start', 'Webhook configuration bot_started must be exactly /start without backslash');
 
 echo 'OK' . PHP_EOL;
