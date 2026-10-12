@@ -101,12 +101,13 @@ class MaxLiveHelperChatActivator
             $identifier = (string)$incomingWebhook->identifier;
             $disabled = (int)$incomingWebhook->disabled;
             // Preserve routing, callback secret, and enabled state. The parser
-            // definition is the only extension-owned part.
+            // definition is the only extension-owned part; attribute values
+            // (hide_buttons_on_click, disable_link_preview) belong to the admin.
             $incomingWebhook->setState(array(
                 'icon' => $content['icon'] ?? '',
                 'icon_color' => $content['icon_color'] ?? '',
                 'scope' => $content['scope'] ?? 'max',
-                'configuration' => $content['configuration'] ?? '',
+                'configuration' => self::keepAttributeValues((string)$incomingWebhook->configuration, (string)($content['configuration'] ?? '')),
                 'log_incoming' => $content['log_incoming'] ?? 0,
                 'log_failed_parse' => $content['log_failed_parse'] ?? 1
             ));
@@ -116,6 +117,43 @@ class MaxLiveHelperChatActivator
             $incomingWebhook->name = 'MaxWebhook';
         }
         $incomingWebhook->saveThis();
+    }
+
+    private static function keepAttributeValues($currentConfiguration, $templateConfiguration)
+    {
+        $current = self::decodeConfiguration($currentConfiguration);
+        $template = self::decodeConfiguration($templateConfiguration);
+        if (!is_array($current) || !is_array($template) || !is_array($current['attr'] ?? null) || !is_array($template['attr'] ?? null)) {
+            return $templateConfiguration;
+        }
+
+        $currentValues = array();
+        foreach ($current['attr'] as $attr) {
+            if (is_array($attr) && isset($attr['key'])) {
+                $currentValues[(string)$attr['key']] = $attr['value'] ?? '';
+            }
+        }
+
+        $seen = array();
+        foreach ($template['attr'] as &$attr) {
+            if (is_array($attr) && isset($attr['key'])) {
+                $seen[(string)$attr['key']] = true;
+                if (array_key_exists((string)$attr['key'], $currentValues)) {
+                    $attr['value'] = $currentValues[(string)$attr['key']];
+                }
+            }
+        }
+        unset($attr);
+
+        // Attributes added by the administrator stay as they are.
+        foreach ($current['attr'] as $attr) {
+            if (is_array($attr) && isset($attr['key']) && !isset($seen[(string)$attr['key']])) {
+                $template['attr'][] = $attr;
+            }
+        }
+
+        $encoded = json_encode($template, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE);
+        return $encoded === false ? $templateConfiguration : $encoded;
     }
 
     private static function loadRestTemplate()
@@ -196,6 +234,11 @@ class MaxLiveHelperChatActivator
                     'success_condition' => 'eq',
                     'value' => '[]'
                 );
+            }
+
+            // Link previews are controlled by the incoming webhook attribute.
+            if (isset($method['suburl']) && strpos((string)$method['suburl'], 'disable_link_preview') === false) {
+                $method['suburl'] .= (strpos((string)$method['suburl'], '?') === false ? '?' : '&') . 'disable_link_preview={{args.chat.incoming_chat.incoming.attributes.disable_link_preview}}';
             }
         }
         unset($method);
