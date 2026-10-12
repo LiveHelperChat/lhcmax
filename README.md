@@ -39,6 +39,30 @@ URL; keep the callback URL private.
 
 The bot token is stored only in the ignored local settings/settings.ini.php file and in the installed LHC REST configuration. The repository template intentionally contains no token.
 
+## Inline buttons and link previews
+
+The `MaxWebhook` incoming webhook has two attributes (Settings -> Incoming
+webhooks). Their values are kept when the configuration is activated again.
+
+- `hide_buttons_on_click` - `true` (default) answers the button callback with
+  `POST /answers` and an empty attachment list, so Max removes the keyboard
+  from the clicked message and the message text stays. Visitors can't click
+  the same buttons again, the same as in the website widget. `false` keeps the
+  buttons.
+- `disable_link_preview` - `true` sends messages with
+  `disable_link_preview=true`. Default `false`.
+
+The callback answer is a REST action (`Answer callback and hide buttons`) and
+needs a bot trigger, the same way text delivery does:
+
+1. In the bot which sends Max messages create a trigger with a single
+   `Rest API` action: REST API `Max`, method `Answer callback and hide
+   buttons`.
+2. Create two webhooks (Settings -> Webhooks) for that trigger, events
+   `chat.webhook_incoming_chat_continue` and `chat.webhook_incoming_chat_started`
+   with the conditions `{args.webhook.scope}` `=` `max` and
+   `{args.data.update_type}` `=` `message_callback`.
+
 ## Architecture
 
 Max visitor -> LHC incoming webhook -> LHC chat.

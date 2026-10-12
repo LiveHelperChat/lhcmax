@@ -254,4 +254,43 @@ maxContractExpect(is_array($webhookConfig), 'Webhook configuration is valid JSON
 maxContractExpect(strpos($webhookConfig['msg_cond_img'] ?? '', 'sticker') !== false, 'Webhook configuration recognizes stickers as images');
 maxContractExpect(($webhookConfig['msg_body_2'] ?? '') === '/start', 'Webhook configuration bot_started must be exactly /start without backslash');
 
+// Inline buttons and link previews
+$webhookAttributes = array_column($webhookConfig['attr'] ?? array(), 'value', 'key');
+maxContractExpect(($webhookAttributes['hide_buttons_on_click'] ?? '') === 'true', 'Webhook template hides inline buttons after a click by default');
+maxContractExpect(($webhookAttributes['disable_link_preview'] ?? '') === 'false', 'Webhook template keeps link previews by default');
+maxContractExpect(strpos($sendMethod['suburl'] ?? '', 'disable_link_preview={{args.chat.incoming_chat.incoming.attributes.disable_link_preview}}') !== false, 'SendMessage passes disable_link_preview from the webhook attribute');
+$answerMethod = null;
+foreach ($templateConfiguration['parameters'] as $method) {
+    if (($method['id'] ?? '') === 'max_answer_callback') {
+        $answerMethod = $method;
+    }
+}
+maxContractExpect(is_array($answerMethod) && ($answerMethod['suburl'] ?? '') === '/answers', 'REST template answers button callbacks');
+maxContractExpect(($answerMethod['query'][0]['value'] ?? '') === '{{args.data.callback.callback_id}}', 'callback_id is sent as an encoded query argument');
+$answerBody = json_decode($answerMethod['body_raw'] ?? '', true);
+maxContractExpect(($answerBody['message']['attachments'] ?? null) === array() && !isset($answerBody['message']['text']), 'callback answer removes the keyboard and keeps the message text');
+maxContractExpect(($answerMethod['conditions'][0]['key'] ?? '') === '{{args.chat.incoming_chat.incoming.attributes.hide_buttons_on_click}}', 'hiding buttons is controlled by the webhook attribute');
+
+$normalizedLinkPreview = array('parameters' => array(array('id' => 'temp1767254647970', 'suburl' => '/messages?chat_id=1')));
+$normalizeMethod->invokeArgs(null, array(&$normalizedLinkPreview));
+maxContractExpect(
+    $normalizedLinkPreview['parameters'][0]['suburl'] === '/messages?chat_id=1&disable_link_preview={{args.chat.incoming_chat.incoming.attributes.disable_link_preview}}',
+    'existing SendMessage receives disable_link_preview once'
+);
+$normalizeMethod->invokeArgs(null, array(&$normalizedLinkPreview));
+maxContractExpect(substr_count($normalizedLinkPreview['parameters'][0]['suburl'], 'disable_link_preview=') === 1, 'disable_link_preview is not duplicated');
+
+$keepMethod = $activatorReflection->getMethod('keepAttributeValues');
+$keepMethod->setAccessible(true);
+$keptConfig = json_decode($keepMethod->invoke(
+    null,
+    json_encode(array('attr' => array(array('key' => 'hide_buttons_on_click', 'value' => 'false'), array('key' => 'custom', 'value' => 'x')))),
+    $webhookTemplate['configuration']
+), true);
+$keptValues = array_column($keptConfig['attr'], 'value', 'key');
+maxContractExpect(($keptValues['hide_buttons_on_click'] ?? '') === 'false', 'update keeps administrator attribute values');
+maxContractExpect(($keptValues['disable_link_preview'] ?? '') === 'false', 'update adds missing template attributes');
+maxContractExpect(($keptValues['custom'] ?? '') === 'x', 'update keeps administrator-added attributes');
+maxContractExpect(($keptConfig['msg_btn_payload_1'] ?? '') === 'callback.payload', 'update still applies the parser definition');
+
 echo 'OK' . PHP_EOL;
