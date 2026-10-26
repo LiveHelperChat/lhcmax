@@ -71,6 +71,19 @@ maxContractExpect(
     'media delivery keeps per-file delivery metadata'
 );
 
+maxContractExpect($reflection->hasMethod('sendMaxFileLink'), 'failed media falls back to a download link');
+maxContractExpect(
+    is_string($maxBootstrap) && strpos($maxBootstrap, "'category' => 'max_exception'") !== false && strpos($maxBootstrap, 'Max media delivery failed') !== false,
+    'failed media delivery is written to the audit log'
+);
+maxContractExpect($class::getFileDownloadUrl((object)array('id' => 0)) === '', 'no download link without a stored file');
+$describeMethod = $reflection->getMethod('describeResponse');
+$describeMethod->setAccessible(true);
+maxContractExpect(
+    $describeMethod->invoke(null, array('http_code' => 400, 'curl_error' => '', 'body' => '{"code":"validation.error"}')) === 'HTTP 400 {"code":"validation.error"}',
+    'failed response is described with status and body'
+);
+
 $fileKeyMethod = $reflection->getMethod('getMediaFileKey');
 $fileKeyMethod->setAccessible(true);
 $fileStatusMethod = $reflection->getMethod('isMediaFileSent');

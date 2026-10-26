@@ -5,6 +5,7 @@ class erLhcoreClassExtensionLhcmax
 {
     private static $instance = null;
     private $settings = [];
+    private $lastError = '';
 
     public function __construct()
     {
@@ -133,7 +134,13 @@ class erLhcoreClassExtensionLhcmax
                 $caption = $fileIndex === 0
                     ? (!empty($fileItem['caption']) ? $this->cleanMessageText($fileItem['caption']) : $cleanCaption)
                     : '';
-                $this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg, $fileKey);
+                if ($this->sendMaxMediaFile($chat, $fileItem['file'], $caption, $replyMid, $msg, $fileKey) === false) {
+                    $this->log('Max media delivery failed: ' . $this->lastError, $chat);
+                    // The visitor still gets the file: a text message with its download link
+                    $this->sendMaxFileLink($chat, $fileItem['file'], $caption, $replyMid, $msg, $fileKey);
+                } elseif ($this->getSetting('debug', false)) {
+                    $this->log('Max media delivered: ' . $fileKey, $chat);
+                }
                 $fileIndex++;
             }
         }
@@ -252,15 +259,18 @@ class erLhcoreClassExtensionLhcmax
 
     public function sendMaxMediaFile($chat, $file, $caption = '', $replyMid = null, $msg = null, $fileKey = null)
     {
+        $this->lastError = '';
         $chatExternalId = $this->getChatExternalId($chat);
         $host = $this->getApiHost();
         $token = $this->getApiToken();
         if ($chatExternalId === '' || $host === null || $token === '' || !($file instanceof erLhcoreClassModelChatFile)) {
+            $this->lastError = 'chat id, API host or token is missing';
             return false;
         }
 
         $mediaSource = self::resolveMediaFileSource($file);
         if ($mediaSource === null) {
+            $this->lastError = 'file is not available';
             return false;
         }
 
@@ -270,6 +280,7 @@ class erLhcoreClassExtensionLhcmax
         $fileName = $mediaSource['name'];
 
         if (!is_string($filePath) || !is_file($filePath) || !is_readable($filePath)) {
+            $this->lastError = 'file is not readable';
             return false;
         }
 
@@ -288,6 +299,7 @@ class erLhcoreClassExtensionLhcmax
         $initResp = $this->executeCurl($initUrl, 'POST', array(), $this->authHeaders(false, $token));
 
         if (!self::isSuccessfulResponse($initResp) || !is_array($initResp['data'])) {
+            $this->lastError = 'POST /uploads: ' . self::describeResponse($initResp);
             return false;
         }
 
@@ -295,11 +307,13 @@ class erLhcoreClassExtensionLhcmax
         $uploadToken = self::responseValue($initResp['data'], array('token', 'upload_token', 'id', 'file_id', 'data.token', 'data.upload_token', 'data.id'));
 
         if (!is_string($uploadUrl) || trim($uploadUrl) === '') {
+            $this->lastError = 'POST /uploads returned no upload URL';
             return false;
         }
 
         $uploadUrl = self::resolveUrl($initUrl, $uploadUrl);
         if ($uploadUrl === null) {
+            $this->lastError = 'upload URL is not allowed';
             return false;
         }
 
@@ -314,6 +328,7 @@ class erLhcoreClassExtensionLhcmax
         // external upload host. cURL generates the multipart boundary.
         $uploadResp = $this->executeCurl($uploadUrl, 'POST_MULTIPART', $postFields, []);
         if (!self::isSuccessfulResponse($uploadResp)) {
+            $this->lastError = 'upload: ' . self::describeResponse($uploadResp);
             return false;
         }
 
@@ -329,6 +344,7 @@ class erLhcoreClassExtensionLhcmax
         }
 
         if (!is_scalar($uploadToken) || trim((string)$uploadToken) === '') {
+            $this->lastError = 'upload returned no attachment token';
             return false;
         }
 
@@ -363,7 +379,89 @@ class erLhcoreClassExtensionLhcmax
             $this->saveMessageMid($msg, $mid, $fileKey !== null ? (string)$fileKey : $this->getMediaFileKey($file));
         }
 
-        return self::isSuccessfulResponse($finalResp);
+        if (!self::isSuccessfulResponse($finalResp)) {
+            $this->lastError = 'POST /messages: ' . self::describeResponse($finalResp);
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Fallback when the native upload failed: a text message with the file's download link.
+     * Marked as delivered like a media message, so a retried event does not send it again.
+     */
+    public function sendMaxFileLink($chat, $file, $caption = '', $replyMid = null, $msg = null, $fileKey = null)
+    {
+        $chatExternalId = $this->getChatExternalId($chat);
+        $host = $this->getApiHost();
+        $token = $this->getApiToken();
+        $url = self::getFileDownloadUrl($file);
+        if ($chatExternalId === '' || $host === null || $token === '' || $url === '') {
+            return false;
+        }
+
+        $name = trim(str_replace(array("\r", "\n"), ' ', (string)($file->upload_name ?? '')));
+        $text = trim((string)$caption . "\n" . '📎 ' . ($name !== '' ? $name . ': ' : '') . $url);
+
+        $payload = array('text' => mb_substr($text, 0, 4000));
+        if (!empty($replyMid)) {
+            $payload['link'] = array('type' => 'reply', 'mid' => (string)$replyMid);
+        }
+
+        $response = $this->executeCurl(self::appendQuery($host, '/messages', array('chat_id' => $chatExternalId)), 'POST', $payload, $this->authHeaders(true, $token));
+        if (!self::isSuccessfulResponse($response)) {
+            $this->log('Max file link delivery failed: POST /messages: ' . self::describeResponse($response), $chat);
+            return false;
+        }
+
+        $mid = self::extractMessageMid($response);
+        if ($mid !== null && $msg instanceof erLhcoreClassModelmsg) {
+            $this->saveMessageMid($msg, $mid, $fileKey !== null ? (string)$fileKey : $this->getMediaFileKey($file));
+        }
+
+        return true;
+    }
+
+    public static function getFileDownloadUrl($file)
+    {
+        if (!is_object($file) || (int)($file->id ?? 0) <= 0 || !class_exists('erLhcoreClassSystem') || !class_exists('erLhcoreClassDesign')) {
+            return '';
+        }
+
+        // security_hash is computed by the model getter, isset() does not see it
+        $hash = trim((string)$file->security_hash);
+        $host = (string)erLhcoreClassSystem::getHost();
+        if ($hash === '' || $host === '') {
+            return '';
+        }
+
+        return $host . erLhcoreClassDesign::baseurldirect('file/downloadfile') . '/' . (int)$file->id . '/' . $hash;
+    }
+
+    private static function describeResponse($response)
+    {
+        $description = 'HTTP ' . (int)($response['http_code'] ?? 0);
+        if (!empty($response['curl_error'])) {
+            $description .= ' ' . $response['curl_error'];
+        }
+        if (!empty($response['body'])) {
+            $description .= ' ' . mb_substr(trim((string)$response['body']), 0, 300);
+        }
+        return $description;
+    }
+
+    private function log($message, $chat = null)
+    {
+        if (class_exists('erLhcoreClassLog')) {
+            erLhcoreClassLog::write($message, ezcLog::SUCCESS_AUDIT, array(
+                'source' => 'lhc',
+                'category' => 'max_exception',
+                'line' => __LINE__,
+                'file' => __FILE__,
+                'object_id' => is_object($chat) ? (int)($chat->id ?? 0) : 0
+            ));
+        }
     }
 
     private function sendMaxMessageWithAttachmentRetry($url, array $payload, array $headers)
