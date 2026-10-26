@@ -72,6 +72,11 @@ Text and interactive actions use the configured LHC REST API action. The
 endpoint, and then POST /messages. This separation prevents duplicate text
 delivery while keeping the three-step upload independent of the REST worker.
 
+If a media upload fails, the reason is written to the audit log (category
+`max_exception`) and the visitor gets a text message with the file's download
+link instead. With **Debug** enabled in the settings, successful media
+deliveries are logged as well.
+
 ## Test
 
 Run the dependency-free contract harness with PHP:
