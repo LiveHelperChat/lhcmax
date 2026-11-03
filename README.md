@@ -63,6 +63,14 @@ needs a bot trigger, the same way text delivery does:
    with the conditions `{args.webhook.scope}` `=` `max` and
    `{args.data.update_type}` `=` `message_callback`.
 
+## Forwarded messages and shared links
+
+A forwarded message has an empty `body.text`; its text and attachments are in
+`message.link.message`. The webhook template saves it as the visitor's own text
+(if any), a "Forwarded message" line and the forwarded text with the first
+attachment URL. A link shared from another app (attachment type `share`) is
+saved as its URL. Without these rules such messages were skipped silently.
+
 ## Architecture
 
 Max visitor -> LHC incoming webhook -> LHC chat.
