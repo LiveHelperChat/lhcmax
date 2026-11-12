@@ -41,6 +41,9 @@ The bot token is stored only in the ignored local settings/settings.ini.php file
 
 ## Inline buttons and link previews
 
+Bot buttons are sent one per row, the same as in the Telegram template, so long
+captions are not squeezed into a single row on a phone.
+
 The `MaxWebhook` incoming webhook has two attributes (Settings -> Incoming
 webhooks). Their values are kept when the configuration is activated again.
 
