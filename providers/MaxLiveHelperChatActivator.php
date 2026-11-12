@@ -208,6 +208,19 @@ class MaxLiveHelperChatActivator
                 continue;
             }
 
+            // MAX returns {"message": {...}} directly, without a response wrapper.
+            // Repair only the old shipped success path and preserve custom rules.
+            if (is_array($method['output'] ?? null)) {
+                foreach ($method['output'] as &$output) {
+                    if (is_array($output)
+                        && ($output['success_header'] ?? '') === '200'
+                        && ($output['success_location'] ?? '') === 'response:message') {
+                        $output['success_location'] = 'message';
+                    }
+                }
+                unset($output);
+            }
+
             // Text delivery stays in the core REST action. Remove only the
             // legacy media fields that refer to the retired core upload path.
             foreach (array('suburl_file', 'suburl_file_convert', 'suburl_file_skip_ext', 'body_raw_file', 'multi_step_upload') as $field) {

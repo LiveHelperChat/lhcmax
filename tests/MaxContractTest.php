@@ -306,4 +306,28 @@ maxContractExpect(($keptValues['disable_link_preview'] ?? '') === 'false', 'upda
 maxContractExpect(($keptValues['custom'] ?? '') === 'x', 'update keeps administrator-added attributes');
 maxContractExpect(($keptConfig['msg_btn_payload_1'] ?? '') === 'callback.payload', 'update still applies the parser definition');
 
+// A real successful MAX response has no top-level "response" wrapper.
+$sentMessage = array('message' => array('body' => array('mid' => 'mid.test.sent', 'text' => 'test')));
+$successOutputs = array_values(array_filter($sendMethod['output'], function ($output) {
+    return ($output['success_header'] ?? '') === '200';
+}));
+maxContractExpect(count($successOutputs) === 1, 'text send has one success output');
+$outputPath = explode(':', $successOutputs[0]['success_location']);
+$selected = $sentMessage;
+foreach ($outputPath as $part) {
+    $selected = is_array($selected) ? ($selected[$part] ?? null) : null;
+}
+maxContractExpect(($selected['body']['mid'] ?? '') === 'mid.test.sent', 'successful MAX response selects the sent message');
+maxContractExpect(in_array('403', array_column($sendMethod['output'], 'success_header'), true), 'blocked recipient remains a failed delivery');
+
+$legacySuccess = array('parameters' => array(array('name' => 'SendMessage', 'output' => array(
+    array('success_header' => '200', 'success_location' => 'response:message'),
+    array('success_header' => '403', 'success_location' => '__all__'),
+    array('success_header' => '200', 'success_location' => 'custom:path')
+))));
+$normalizeMethod->invokeArgs(null, array(&$legacySuccess));
+maxContractExpect($legacySuccess['parameters'][0]['output'][0]['success_location'] === 'message', 'activation repairs the old text success path');
+maxContractExpect($legacySuccess['parameters'][0]['output'][1]['success_location'] === '__all__', 'activation preserves failure rules');
+maxContractExpect($legacySuccess['parameters'][0]['output'][2]['success_location'] === 'custom:path', 'activation preserves custom success rules');
+
 echo 'OK' . PHP_EOL;
