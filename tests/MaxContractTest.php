@@ -49,6 +49,22 @@ foreach (array(
 
 $instance = new $class();
 
+foreach ([
+    ['max', null, true],
+    ['max', ['type' => 'reply'], true],
+    ['max', ['type' => 'reply', 'chat_id' => 17], true],
+    ['max', ['type' => 'reply', 'chat_id' => 18], false],
+    ['max', ['type' => 'forward', 'chat_id' => 17], false],
+    ['max', ['message' => ['mid' => 'unknown']], false],
+    ['telegram', ['type' => 'forward'], true],
+] as [$scope, $link, $keep]) {
+    $webhook = (object)['scope' => $scope, 'conditions_array' => ['message_id_reply' => 'message.link.message.mid', 'msg_body_3' => 'forwarded text']];
+    $message = ['recipient' => ['chat_id' => '17'], 'link' => $link];
+    $instance->filterIncomingReply(['webhook' => $webhook, 'data' => ['message' => $message]]);
+    maxContractExpect(isset($webhook->conditions_array['message_id_reply']) === $keep, 'reply targets require a native same-chat reply');
+    maxContractExpect($webhook->conditions_array['msg_body_3'] === 'forwarded text', 'forward content rules survive');
+}
+
 class erLhcoreClassChatEventDispatcher
 {
     public static $listener;

@@ -23,10 +23,35 @@ class erLhcoreClassExtensionLhcmax
     public function run()
     {
         $dispatcher = erLhcoreClassChatEventDispatcher::getInstance();
+        $dispatcher->listen('chat.webhook_incoming', array($this, 'filterIncomingReply'));
 
         // Text is delivered by the configured REST API trigger. The extension
         // owns only native three-step media uploads.
         $dispatcher->listen('chat.web_add_msg_admin', array($this, 'onWebAddMsgAdmin'));
+    }
+
+    public function filterIncomingReply($params)
+    {
+        $webhook = $params['webhook'];
+        if ($webhook->scope !== 'max') {
+            return;
+        }
+
+        $message = $params['data']['message'] ?? [];
+        $link = $message['link'] ?? $message['body']['link'] ?? null;
+        if ($link === null) {
+            return;
+        }
+        if (($link['type'] ?? null) === 'reply' && (!isset($link['chat_id']) ||
+            (string)$link['chat_id'] === (string)($message['recipient']['chat_id'] ?? ''))) {
+            return;
+        }
+
+        // Forwards also contain a linked MID. Preserve their text and attachments
+        // while disabling reply extraction for this delivery only.
+        $conditions = $webhook->conditions_array;
+        unset($conditions['message_id_reply']);
+        $webhook->conditions_array = $conditions;
     }
 
     public function loadSettings()
