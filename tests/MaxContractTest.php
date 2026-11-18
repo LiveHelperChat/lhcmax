@@ -48,6 +48,37 @@ foreach (array(
 }
 
 $instance = new $class();
+
+class erLhcoreClassChatEventDispatcher
+{
+    public static $listener;
+
+    public static function getInstance()
+    {
+        return new self();
+    }
+
+    public function dispatch($event, $params)
+    {
+        if (self::$listener) {
+            (self::$listener)($event, $params);
+        }
+    }
+}
+
+$historyChat = (object)array('id' => 8);
+$historyMsg = (object)array('meta_msg_array' => array('content' => array('reply_to' => array('iwh_msg_id' => 'old-mid'))));
+maxContractExpect($instance->extractReplyMid($historyMsg, $historyChat) === null, 'an unknown media reply is omitted by default');
+erLhcoreClassChatEventDispatcher::$listener = function ($event, $params) use ($historyChat, $historyMsg) {
+    if ($event === 'chat.validate_external_reply' && $params['chat'] === $historyChat
+        && $params['msg'] === $historyMsg && $params['external_id'] === 'old-mid') {
+        $params['valid'] = true;
+    }
+};
+maxContractExpect($instance->extractReplyMid($historyMsg, $historyChat) === 'old-mid', 'verified historical media reply is preserved');
+maxContractExpect($instance->extractReplyMid($historyMsg, (object)array('id' => 9)) === null, 'a different chat must be verified separately');
+erLhcoreClassChatEventDispatcher::$listener = null;
+
 $invalidTest = $instance->testConnection('https://platform-api2.max.ru/path?x=1', 'token');
 maxContractExpect($invalidTest['success'] === false && strpos($invalidTest['response'], 'origin') !== false, 'connection test rejects a non-origin host');
 

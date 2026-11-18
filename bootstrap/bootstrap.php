@@ -170,7 +170,19 @@ class erLhcoreClassExtensionLhcmax
         // 1. Direct iwh_msg_id in meta
         if (!empty($meta['content']['reply_to']['iwh_msg_id'])) {
             $mid = (string)$meta['content']['reply_to']['iwh_msg_id'];
-            return $this->isMidInChat($mid, $chat) ? $mid : null;
+            if ($this->isMidInChat($mid, $chat)) {
+                return $mid;
+            }
+
+            // A bridge can verify a reply to an earlier conversation with the same peer.
+            $valid = false;
+            erLhcoreClassChatEventDispatcher::getInstance()->dispatch('chat.validate_external_reply', array(
+                'chat' => $chat,
+                'msg' => $msg,
+                'external_id' => $mid,
+                'valid' => &$valid,
+            ));
+            return $valid === true ? $mid : null;
         }
 
         // 2. Referenced db_msg_id
